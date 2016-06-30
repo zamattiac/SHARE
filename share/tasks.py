@@ -7,6 +7,7 @@ import requests
 
 from django.apps import apps
 from django.conf import settings
+from django.db import transaction
 
 from share.change import ChangeGraph
 from share.models import RawData, NormalizedManuscript, ShareUser, ChangeSet
@@ -80,3 +81,13 @@ def make_json_patches(self, normalized_id, started_by_id=None):
         raise self.retry(countdown=10, exc=e)
 
     logger.info('Finished make JSON patches for {} by {} at {}'.format(normalized, started_by, datetime.datetime.utcnow().isoformat()))
+
+
+@celery.task(bind=True)
+def run_bot(self, app_label: str, started_by=None):
+    config = apps.get_app_config(app_label)
+    bot = config.get_bot()
+
+    logger.info('Running bot {}. Started by {}'.format(bot, started_by or 'system'))
+    with transaction.atomic():
+        bot.run()
